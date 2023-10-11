@@ -10,6 +10,7 @@ from annie_gravity_model import GravityModel
 from annie_gravity_model import get_list_of_data_files
 from annie_gravity_model import sort_data_files_by_alpha
 from annie_gravity_model import plot_filtered_forces
+from annie_gravity_model import plot_grab_sections
 
 class Polars:
 
@@ -73,6 +74,65 @@ class Polars:
             display = self.param.setdefault('display', {})
             if display.setdefault('filtered_forces', False):
                 plot_filtered_forces(t, fx, fy, fz, fx_filt, fy_filt, fz_filt, alpha)
+
+            # Get sections where dphi is equal to maximum
+            mask_pos = dphi >= dphi.max() 
+            t_pos = t[mask_pos]
+            eta_pos = eta[mask_pos]
+            phi_pos = phi[mask_pos]
+            dphi_pos = dphi[mask_pos]
+            fx_filt_pos = fx_filt[mask_pos]
+            fy_filt_pos = fy_filt[mask_pos]
+            fz_filt_pos = fz_filt[mask_pos]
+
+            # Get sections where dphi is equal to -maximum
+            mask_neg = dphi <= dphi.min() 
+            t_neg = t[mask_neg]
+            eta_neg = eta[mask_neg]
+            phi_neg = phi[mask_neg]
+            dphi_neg = dphi[mask_neg]
+            fx_filt_neg = fx_filt[mask_neg]
+            fy_filt_neg = fy_filt[mask_neg]
+            fz_filt_neg = fz_filt[mask_neg]
+
+            # Save datasets as function of eta
+            eta_pos_val = eta_pos.max()
+            eta_neg_val = eta_neg.min()
+            
+            datasets[eta_pos_val] = { 
+                    't'    : t_pos, 
+                    'eta'  : eta_pos,
+                    'phi'  : phi_pos, 
+                    'dphi' : dphi_pos,
+                    'fx'   : fx_filt_pos,
+                    'fy'   : fy_filt_pos,
+                    'fz'   : fz_filt_pos, 
+                    }
+
+            datasets[eta_neg_val] = { 
+                    't'    : t_neg, 
+                    'eta'  : eta_neg,
+                    'phi'  : phi_neg, 
+                    'dphi' : dphi_neg,
+                    'fx'   : fx_filt_neg,
+                    'fy'   : fy_filt_neg,
+                    'fz'   : fz_filt_neg, 
+                    }
+
+            # Optional plot showing grab sections for gravitational model
+            if display.setdefault('grab_sections', False):
+                datafull = {
+                        't'   : t, 
+                        'eta' : eta, 
+                        'phi' : phi, 
+                        'dphi': dphi, 
+                        'fx'  : fx_filt, 
+                        'fy'  : fy_filt, 
+                        'fz'  : fz_filt
+                        }
+                plot_grab_sections(datafull, datasets[eta_pos_val], datasets[eta_neg_val], alpha)
+
+
 
 
     def get_list_of_data_files(self):

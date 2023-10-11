@@ -18,7 +18,7 @@ scipy = "^1.11.3"
 type = "git"
 url = "https://github.com/willdickson/annie-gravity-model"
 reference = "HEAD"
-resolved_reference = "754b8fd6c8b6183e51b5ce5ba83c63f18819e3fe"
+resolved_reference = "b38a0c2d5df5109ab61913601bc778089dc1ee1d"
 
 [[package]]
 name = "contourpy"
