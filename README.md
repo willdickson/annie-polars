@@ -1,3 +1,3 @@
 ### annie-polars
 
-Some routines for extracting aerodymaic polars from Robofly data. 
+Some routines for extracting aerodynamic polars from Robofly data. 
