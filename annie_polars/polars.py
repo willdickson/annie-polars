@@ -7,145 +7,126 @@ import scipy.interpolate as interp
 import matplotlib.pyplot as plt
 
 from annie_gravity_model import GravityModel
-from annie_gravity_model import get_list_of_data_files
-from annie_gravity_model import sort_data_files_by_alpha
-from annie_gravity_model import plot_filtered_forces
-from annie_gravity_model import plot_grab_sections
+from annie_gravity_model import load_datasets
 
 class Polars:
 
-    def __init__(self, param):
-        self.param = param
+    def __init__(self, prm):
+        self.prm = prm
         self.gravity_model = GravityModel()
         self.setup_gravity_model()
 
     def plot(self):
-        self.load_datasets()
+        data_dir = self.prm['data_dir']
+        print(data_dir)
+        data_prm = self.prm['data_prm']
+        plot_prm = self.prm.setdefault('plot_prm', {})
+
+        datasets = load_datasets(data_dir, data_prm, plot_prm)
+        datasets = cutout_transient_sections(datasets, data_prm, plot_prm)
+
+        #eta_pts = np.array(sorted(datasets.keys()))
+        #fx_pts = np.zeros_like(eta_pts) 
+        #fy_pts = np.zeros_like(eta_pts)
+        #fz_pts = np.zeros_like(eta_pts)
+
+        #for i, eta in enumerate(eta_pts):
+
+        #    phi = datasets[eta]['phi']
+
+        #    grav_phi_min = self.gravity_model.phi.min() 
+        #    grav_phi_max = self.gravity_model.phi.max()
+        #    phi_mask = np.logical_and(phi>=grav_phi_min, phi<=grav_phi_max)
+        #    phi = phi[phi_mask]
+
+        #    fx_orig = datasets[eta]['fx'][phi_mask]
+        #    fy_orig = datasets[eta]['fy'][phi_mask]
+        #    fz_orig = datasets[eta]['fz'][phi_mask]
+
+        #    fx_grav = self.gravity_model.fx(eta, phi)
+        #    fy_grav = self.gravity_model.fy(eta, phi)
+        #    fz_grav = self.gravity_model.fz(eta, phi)
+
+        #    fx_aero = fx_orig - fx_grav
+        #    fy_aero = fy_orig - fy_grav
+        #    fz_aero = fz_orig - fz_grav
+
+        #    fx_pts[i] = -fx_aero.mean()
+        #    fy_pts[i] = fy_aero.mean()
+        #    #fx_pts[i] = -np.median(fx_aero)
+        #    #fy_pts[i] =  np.median(fy_aero)
+        #    #fz_pts[i] = fz_aero.mean()
+        #    if eta >= 0:
+        #        fz_pts[i] = -fz_aero.mean()
+        #        #fz_pts[i] = -np.median(fz_aero)
+        #    else:
+        #        fz_pts[i] = fz_aero.mean()
+        #        #fz_pts[i] = np.median(fz_aero)
+
+
+        #    #fg, ax = plt.subplots(2,1)
+        #    #ax[0].plot(phi, fz_orig, '.b')
+        #    #ax[0].plot(phi, fz_grav, '.g')
+        #    #ax[0].set_ylabel('fz')
+        #    #ax[1].grid(True)
+        #    #ax[1].plot(phi, fz_aero, '.b')
+        #    #ax[1].grid(True)
+        #    #ax[1].set_ylabel('fz sub')
+        #    #ax[1].set_xlabel('phi (deg)')
+        #    #plt.show()
+
+        #fg, ax = plt.subplots(1,1)
+        #ax.plot(eta_pts, fz_pts, 'ob')
+        #ax.plot(eta_pts, fx_pts, 'or')
+        #ax.set_xlabel('eta')
+        #ax.set_ylabel('fz')
+        #ax.grid(True)
+        #plt.show()
+
 
     def setup_gravity_model(self):
         """
         Setup model for gravity subtraction.
         """
-        if 'gravity_file' in self.param:
-            self.gravity_model.load(self.param['gravity_file'])
-        elif 'gravity_dir' in self.param:
-            fit_param = self.param.get_default('fit_param', None)
-            self.gravity_model.fit(self.param['gravity_data'], fit_param=fit_param)
+        if 'gravity_file' in self.prm:
+            self.gravity_model.load(self.prm['gravity_file'])
+        elif 'gravity_dir' in self.prm:
+            fit_prm = self.prm.get_default('fit_prm', None)
+            self.gravity_model.fit(self.prm['gravity_data'], fit_prm=fit_prm)
         else:
             raise ValueError('gravity model missing')
 
-    def load_datasets(self):
-        data_files = self.get_list_of_data_files()
-        alphas, data_files = sort_data_files_by_alpha(data_files)
-        datasets = {}
-        print('loading datasets')
-        for alpha, file in zip(alphas, data_files):
-            print(f'  {file}')
-            data = io.loadmat(str(file))
 
-            # Extract the data we need for polars
-            t = data['t_FT_s'][:,0]
-            eta = data['wingkin_s'][:,2]
-            phi = data['wingkin_s'][:,3]
-            dphi = data['wingkin_s'][:,9]
-            fx = data['FT_conv_s'][0,:]
-            fy = data['FT_conv_s'][2,:]
-            fz = data['FT_conv_s'][1,:]
-
-            # Cut out sections between t_lim[0] and t_lim[1]
-            if self.param['t_lim'] is not None:
-                mask_t_lim = np.logical_and(t >= self.param['t_lim'][0], t <= self.param['t_lim'][1])
-                t = t[mask_t_lim]
-                eta = eta[mask_t_lim]
-                phi = phi[mask_t_lim]
-                dphi = dphi[mask_t_lim]
-                fx = fx[mask_t_lim]
-                fy = fy[mask_t_lim]
-                fz = fz[mask_t_lim]
-
-            # Lowpass filter force data
-            dt = t[1] - t[0]
-            force_filt = sig.butter(4, self.param['fcut'], btype='low', output='ba', fs=1/dt)
-            fx_filt = sig.filtfilt(*force_filt, fx)
-            fy_filt = sig.filtfilt(*force_filt, fy)
-            fz_filt = sig.filtfilt(*force_filt, fz)
-
-            # Optional plot showing filtered and unfilterd force data
-            display = self.param.setdefault('display', {})
-            if display.setdefault('filtered_forces', False):
-                plot_filtered_forces(t, fx, fy, fz, fx_filt, fy_filt, fz_filt, alpha)
-
-            # Get sections where dphi is equal to maximum
-            mask_pos = dphi >= dphi.max() 
-            t_pos = t[mask_pos]
-            eta_pos = eta[mask_pos]
-            phi_pos = phi[mask_pos]
-            dphi_pos = dphi[mask_pos]
-            fx_filt_pos = fx_filt[mask_pos]
-            fy_filt_pos = fy_filt[mask_pos]
-            fz_filt_pos = fz_filt[mask_pos]
-
-            # Get sections where dphi is equal to -maximum
-            mask_neg = dphi <= dphi.min() 
-            t_neg = t[mask_neg]
-            eta_neg = eta[mask_neg]
-            phi_neg = phi[mask_neg]
-            dphi_neg = dphi[mask_neg]
-            fx_filt_neg = fx_filt[mask_neg]
-            fy_filt_neg = fy_filt[mask_neg]
-            fz_filt_neg = fz_filt[mask_neg]
-
-            # Save datasets as function of eta
-            eta_pos_val = eta_pos.max()
-            eta_neg_val = eta_neg.min()
-            
-            datasets[eta_pos_val] = { 
-                    't'    : t_pos, 
-                    'eta'  : eta_pos,
-                    'phi'  : phi_pos, 
-                    'dphi' : dphi_pos,
-                    'fx'   : fx_filt_pos,
-                    'fy'   : fy_filt_pos,
-                    'fz'   : fz_filt_pos, 
-                    }
-
-            datasets[eta_neg_val] = { 
-                    't'    : t_neg, 
-                    'eta'  : eta_neg,
-                    'phi'  : phi_neg, 
-                    'dphi' : dphi_neg,
-                    'fx'   : fx_filt_neg,
-                    'fy'   : fy_filt_neg,
-                    'fz'   : fz_filt_neg, 
-                    }
-
-            # Optional plot showing grab sections for gravitational model
-            if display.setdefault('grab_sections', False):
-                datafull = {
-                        't'   : t, 
-                        'eta' : eta, 
-                        'phi' : phi, 
-                        'dphi': dphi, 
-                        'fx'  : fx_filt, 
-                        'fy'  : fy_filt, 
-                        'fz'  : fz_filt
-                        }
-                plot_grab_sections(datafull, datasets[eta_pos_val], datasets[eta_neg_val], alpha)
-
-
-
-
-    def get_list_of_data_files(self):
-        """ Get list of relvant data files - filter by v and xi. """
-        data_dir = pathlib.Path(self.param['data_dir'])
-        v = self.param['data_v']
-        xi = self.param['data_xi']
-        data_files = get_list_of_data_files(data_dir,v=v, xi=xi) 
-        return data_files
-
-
-
-
-
-# Utility functions
+# Utility
 # ---------------------------------------------------------------------------------------
+
+def cutout_transient_sections(datasets, data_prm, plot_prm):
+    datasets_mod = {}
+    eta_vals = np.array(sorted(datasets.keys()))
+
+    for eta in eta_vals:
+
+        data = datasets[eta]
+        ind = data['ind']
+
+        mask = np.diff(ind) > 1
+        bdry = np.concatenate(([0], ind[1:][mask], [ind[-1]]))
+        bdry_pairs = zip(bdry[:-1], bdry[1:])
+
+
+
+        phi = datasets[eta]['phi']
+
+        fg, ax = plt.subplots(1,1)
+        ax.plot(ind, phi, '.')
+        ax.plot(ind[1:][mask], phi[1:][mask], '.r')
+        ax.set_xlabel('ind')
+        ax.set_ylabel('phi')
+        ax.grid(True)
+        plt.show()
+
+
+
+
+
+
