@@ -1,19 +1,24 @@
 import pathlib
 from annie_polars import Polars
 
-param = {
-        'gravity_file': pathlib.Path('gravity_model.pkl'),
-        'data_dir'    : pathlib.Path('../../v_60_90_results_with_conv/'),
-        'data_v'      : 90,
-        'data_xi'     : 0, 
-        't_lim'       : (0.8, 7.3),
-        'eta_lim'     : None,
-        'fcut'        : 10.0, 
-        'display'     : {
+prm = {
+        'gravity_file'  : pathlib.Path('gravity_model.pkl'),
+        'data_dir'      : pathlib.Path('../../v_60_90_results_with_conv/'),
+        'data_prm'      : {
+            'v'         : 90,
+            'xi'        : 0, 
+            'fcut'      : 10.0, 
+            't_lim'     : (1.5, 7.5),
+            'eta_lim'   : (-80, 80),
+            'trans_cut' : (0.6, 0.9),
+            }, 
+        'plot_prm'  : {
             'filtered_forces': False, 
-            'grab_sections'  : True, 
+            'grab_sections'  : False, 
+            'trans_cutouts'  : False,
+            'mean_aero'      : False,
             }
         }
 
-polars = Polars(param)
+polars = Polars(prm)
 polars.plot()
