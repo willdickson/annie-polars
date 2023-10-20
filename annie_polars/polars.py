@@ -34,36 +34,19 @@ class Polars:
         etas_sorted = np.array(sorted(datasets_sect.keys()))
 
         # Optional plots for checking analysis steps
-        if plot_prm.setdefault('trans_cutouts', False):
+        if plot_prm.get('trans_cutouts', False):
             for eta in etas_sorted: 
                 plot_trans_cut(forces_full[eta], forces_sect[eta])
-        if plot_prm.setdefault('mean_aero', False):
+        if plot_prm.get('mean_aero', False):
             plot_mean_aero(etas_sorted, forces_full, forces_sect)
-
-        abs_etas = np.absolute(etas_sorted)
 
         # Extract lift and drag forces
         fx_mean_aero, fy_mean_aero, fz_mean_aero = get_mean_aero(etas_sorted, forces_sect)
 
         # Split into positive and negative etas (not done).
-        mask_pos = etas_sorted >= 0
-        mask_neg = etas_sorted < 0
-        eta_pos = etas_sorted[mask_pos]
-        eta_neg = etas_sorted[mask_neg]
-
-        aoa_deg = 90.0 - abs_etas
-        aoa_rad = np.deg2rad(aoa_deg)
-        lift = fz_mean_aero*np.cos(aoa_rad) - fx_mean_aero*np.sin(aoa_rad)
-        drag = fz_mean_aero*np.sin(aoa_rad) + fx_mean_aero*np.cos(aoa_rad)
-
-        fg, ax = plt.subplots(1,1)
-        lift_line, = ax.plot(aoa_deg, lift, 'ob')
-        drag_line, = ax.plot(aoa_deg, drag, 'or')
-        ax.grid(True)
-        ax.set_xlabel('aoa (deg)')
-        ax.set_ylabel('force')
-        ax.legend((lift_line, drag_line),('lift', 'drag'), loc='upper left')
-        plt.show()
+        forces_by_eta_sign = get_forces_by_eta_sign(etas_sorted, fx_mean_aero, fz_mean_aero)
+        #if plot_prm.get('by_eta_sign'):
+        #    pass
 
 
 
@@ -124,9 +107,10 @@ def fy_sign(eta):
     return 1
 
 def fz_sign(eta):
-    rval = 1
     if eta >= 0:
         rval = -1
+    else:
+        rval = 1
     return rval
 
 def force_sign(fname, eta):
@@ -165,12 +149,84 @@ def cutout_transient_sections(datasets, data_prm, plot_prm):
     return datasets_mod
 
 
-def get_mean_aero(etas_sorted, forces): 
+def get_mean_aero(etas, forces): 
+    """
+    Extracts mean aerodynamic forces for each eta.  Adjusts forces for sign. 
+
+    Arguments:
+      etas   = eta wing angles 
+      forces = dictionary containing forces as a function of eta. 
+    """
     mean_aero = []
     for fname in ('fx', 'fy', 'fz'):
-        mean_vals = np.array([force_sign(fname, eta)*forces[eta][fname]['mean_aero'] for eta in etas_sorted])
+        mean_vals = np.array([force_sign(fname, eta)*forces[eta][fname]['mean_aero'] for eta in etas])
         mean_aero.append(mean_vals)
     return tuple(mean_aero)
+
+
+def get_forces_by_eta_sign(eta, fx, fz): 
+    """
+    Split mean aero dynamics forces by eta sign (eta >= 0 and eta <= 0). 
+
+    Arguments:
+      eta = wing kinematics angle eta in degrees.
+      fx  = x-component of mean aerodynamic force.
+      fy  = y-component of mean aerodynamic force.
+
+    Returns:
+      sign_to_force = dictionary keyed by 'pos', 'neg' giving aerodynamic
+      forces for case where eta >=0 and eta <= 0.
+
+    """
+    sign_to_forces = { }
+    eta_sign_to_mask_func = {'pos': np.greater_equal, 'neg': np.less_equal }
+    for sign_str, mask_func in eta_sign_to_mask_func.items():
+        mask = mask_func(eta, 0)
+        eta_mask_deg = eta[mask]
+        aoa_mask_deg = 90.0 - np.absolute(eta_mask_deg)
+        ind_sort = np.argsort(aoa_mask_deg)
+        eta_sort_deg = eta_mask_deg[ind_sort]
+        aoa_sort_deg = aoa_mask_deg[ind_sort]
+        eta_sort_rad = np.deg2rad(eta_sort_deg)
+        aoa_sort_rad = np.deg2rad(aoa_sort_deg)
+        fx_sort = fx[mask][ind_sort]
+        fz_sort = fz[mask][ind_sort]
+        lift_sort, drag_sort = get_lift_and_drag(aoa_sort_rad, fx_sort, fz_sort)
+        sign_to_forces[sign_str] = {
+                'eta': {
+                    'deg' : eta_sort_deg,
+                    'rad' : eta_sort_rad,
+                    },
+                'aoa': {
+                    'deg': aoa_sort_deg, 
+                    'rad': aoa_sort_rad,
+                    },
+                'fx'     : fx_sort,
+                'fz'     : fz_sort, 
+                'lift'   : lift_sort, 
+                'drag'   : drag_sort,
+                }
+    return sign_to_forces
+
+
+def get_lift_and_drag(aoa, fx, fz): 
+    """
+    Calculates lift and drag given the angle-of-attack (in radians) and the  x
+    and z components of the forces.  
+
+    Arguments:
+      aoa = angle of attach in radians
+      fx  = x-component of aerodynamic force 
+      fz  = z-component of aerodynamic force
+
+    Returns:
+      lift = lift acting on wing
+      drag = drag acting on wing
+    """
+
+    lift = fz*np.cos(aoa) - fx*np.sin(aoa)
+    drag = fz*np.sin(aoa) + fx*np.cos(aoa)
+    return lift, drag
 
 
 def plot_trans_cut(data_full, data_sect, abscissa='ind'): 
@@ -210,7 +266,6 @@ def plot_trans_cut(data_full, data_sect, abscissa='ind'):
         for j, _ in enumerate(force_types):
             frng = fmax - fmin
             ax[i,j].set_ylim(fmin - 0.1*frng, fmax + 0.1*frng)
-
     plt.show()
 
 
@@ -238,6 +293,25 @@ def plot_mean_aero(etas_sorted, forces_full, forces_sect):
     ax[1].legend(legend_info['line'][1],legend_info['label'][1], loc='upper right')
     plt.show()
 
+
+def plot_forces_by_eta_sign(force_by_eta_sign): 
+    fg, ax = plt.subplots(2,1)
+    sign_to_style = {'pos': 'or', 'neg': 'ob'}
+    for eta_sign, force_data in forces_by_eta_sign.items():
+        aoa = force_data['aoa']['deg']
+        lift = force_data['lift']
+        drag = force_data['drag']
+        style = sign_to_style[eta_sign]
+
+        lift_line, = ax[0].plot(aoa, lift, style)
+        ax[0].grid(True)
+        ax[1].set_ylabel('lift')
+
+        drag_line, = ax[1].plot(aoa, drag, style)
+        ax[1].grid(True)
+        ax[1].set_ylabel('drag')
+    ax[1].set_xlabel('aoa (deg)')
+    plt.show()
 
 
 
