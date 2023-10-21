@@ -1,3 +1,4 @@
+import copy
 import pathlib
 import numpy as np
 import scipy as sp
@@ -37,7 +38,7 @@ class Polars:
         if plot_prm.get('trans_cutouts', False):
             for eta in etas_sorted: 
                 plot_trans_cut(forces_full[eta], forces_sect[eta])
-        if plot_prm.get('mean_aero', False):
+        if plot_prm.get('mean_aero_forces', False):
             plot_mean_aero(etas_sorted, forces_full, forces_sect)
 
         # Extract lift and drag forces
@@ -45,9 +46,20 @@ class Polars:
 
         # Split into positive and negative etas (not done).
         forces_by_eta_sign = get_forces_by_eta_sign(etas_sorted, fx_mean_aero, fz_mean_aero)
-        #if plot_prm.get('by_eta_sign'):
-        #    pass
+        if plot_prm.get('pos_neg_forces', False):
+            plot_pos_neg_forces(forces_by_eta_sign) 
 
+        # Average forces for positive and negative eta
+        forces = average_forces_for_pos_neg_eta(forces_by_eta_sign)
+        if plot_prm.get('lift_and_drag', False):
+            plot_lift_and_drag(forces)
+
+        # Calculate force coefficients
+        dphi_deg = data_prm['v']
+        wing_prm = self.prm['wing_prm']
+        fluid_prm = self.prm['fluid_prm']
+        coeffs = get_force_coeffs(forces, dphi_deg, wing_prm, fluid_prm)
+        plot_polars(coeffs)
 
 
 
@@ -174,11 +186,11 @@ def get_forces_by_eta_sign(eta, fx, fz):
       fy  = y-component of mean aerodynamic force.
 
     Returns:
-      sign_to_force = dictionary keyed by 'pos', 'neg' giving aerodynamic
+      forces_by_eta_sign = dict keyed by 'pos', 'neg' giving aerodynamic
       forces for case where eta >=0 and eta <= 0.
 
     """
-    sign_to_forces = { }
+    forces_by_eta_sign = { }
     eta_sign_to_mask_func = {'pos': np.greater_equal, 'neg': np.less_equal }
     for sign_str, mask_func in eta_sign_to_mask_func.items():
         mask = mask_func(eta, 0)
@@ -192,7 +204,7 @@ def get_forces_by_eta_sign(eta, fx, fz):
         fx_sort = fx[mask][ind_sort]
         fz_sort = fz[mask][ind_sort]
         lift_sort, drag_sort = get_lift_and_drag(aoa_sort_rad, fx_sort, fz_sort)
-        sign_to_forces[sign_str] = {
+        forces_by_eta_sign[sign_str] = {
                 'eta': {
                     'deg' : eta_sort_deg,
                     'rad' : eta_sort_rad,
@@ -206,7 +218,28 @@ def get_forces_by_eta_sign(eta, fx, fz):
                 'lift'   : lift_sort, 
                 'drag'   : drag_sort,
                 }
-    return sign_to_forces
+    return forces_by_eta_sign
+
+
+def average_forces_for_pos_neg_eta(forces_by_eta_sign):
+    """
+    Average forced for eta>=0 and eta<=0 kinematics.  
+
+    Arguments:
+      forces_by_eta_sing = dict keyed by 'pos' and 'neg' giving aerodynamic forces
+      for cases where eta>=0 and eta<=0.
+
+    Returns:
+      forces = dictionary of aerodynamics forces.
+
+    """
+    forces = copy.deepcopy(forces_by_eta_sign['pos'])
+    for k in forces:
+        if k in ('eta', 'aoa'):
+            continue
+        forces[k] = 0.5*(forces[k] + forces_by_eta_sign['neg'][k])
+    return forces
+
 
 
 def get_lift_and_drag(aoa, fx, fz): 
@@ -227,6 +260,23 @@ def get_lift_and_drag(aoa, fx, fz):
     lift = fz*np.cos(aoa) - fx*np.sin(aoa)
     drag = fz*np.sin(aoa) + fx*np.cos(aoa)
     return lift, drag
+
+
+def get_force_coeffs(forces, dphi_deg, wing_prm, fluid_prm):
+    dphi_rad = np.deg2rad(dphi_deg)
+    wing_length = wing_prm['length']
+    mean_chord = wing_prm['mean_chord']
+    nd_2nd_mom = wing_prm['nd_2nd_mom']
+    density = fluid_prm['density']
+    tip_velocity = (dphi_rad*wing_length)**2
+    wing_area = mean_chord*wing_length
+    const = 2.0/(density*(tip_velocity**2)*wing_area*nd_2nd_mom)
+    coeffs = {}
+    coeffs['eta'] = copy.deepcopy(forces['eta'])
+    coeffs['aoa'] = copy.deepcopy(forces['aoa'])
+    coeffs['lift'] = const*forces['lift']
+    coeffs['drag'] = const*forces['drag']
+    return coeffs
 
 
 def plot_trans_cut(data_full, data_sect, abscissa='ind'): 
@@ -294,7 +344,10 @@ def plot_mean_aero(etas_sorted, forces_full, forces_sect):
     plt.show()
 
 
-def plot_forces_by_eta_sign(force_by_eta_sign): 
+def plot_pos_neg_forces(forces_by_eta_sign): 
+    """
+    Plot lift and drag forces for positive and negative eta separately. 
+    """
     fg, ax = plt.subplots(2,1)
     sign_to_style = {'pos': 'or', 'neg': 'ob'}
     for eta_sign, force_data in forces_by_eta_sign.items():
@@ -313,6 +366,26 @@ def plot_forces_by_eta_sign(force_by_eta_sign):
     ax[1].set_xlabel('aoa (deg)')
     plt.show()
 
+def plot_lift_and_drag(forces):
+    fg, ax = plt.subplots(1,1)
+    lift_line, = ax.plot(forces['aoa']['deg'], forces['lift'], 'ob')
+    drag_line, = ax.plot(forces['aoa']['deg'], forces['drag'], 'or')
+    ax.grid(True)
+    ax.set_xlabel('aoa (deg)')
+    ax.set_ylabel('forces')
+    ax.legend((lift_line, drag_line), ('lift', 'drag'), loc='upper right')
+    plt.show()
+
+
+def plot_polars(coeffs):
+    fg, ax = plt.subplots(1,1)
+    lift_line, = ax.plot(coeffs['aoa']['deg'], coeffs['lift'], 'ob')
+    drag_line, = ax.plot(coeffs['aoa']['deg'], coeffs['drag'], 'or')
+    ax.grid(True)
+    ax.set_xlabel('aoa (deg)')
+    ax.set_ylabel('coeff')
+    ax.legend((lift_line, drag_line), ('lift', 'drag'), loc='upper right')
+    plt.show()
 
 
 
