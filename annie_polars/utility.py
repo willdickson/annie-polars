@@ -123,13 +123,14 @@ def average_forces_for_pos_neg_eta(forces_by_eta_sign):
       forces = dictionary of aerodynamics forces.
 
     """
-    forces = copy.deepcopy(forces_by_eta_sign['pos'])
-    for k in forces:
+    forces = {}
+    forces['eta'] = copy.deepcopy(forces_by_eta_sign['pos']['eta'])
+    forces['aoa'] = copy.deepcopy(forces_by_eta_sign['pos']['aoa'])
+    for k in forces_by_eta_sign['pos']:
         if k in ('eta', 'aoa'):
             continue
-        forces[k] = 0.5*(forces[k] + forces_by_eta_sign['neg'][k])
+        forces[k] = 0.5*(forces_by_eta_sign['pos'][k] + forces_by_eta_sign['neg'][k])
     return forces
-
 
 
 def get_lift_and_drag(aoa, fx, fz): 
@@ -186,7 +187,7 @@ def get_force_coeffs(forces, dphi_deg, wing_prm, fluid_prm):
     return coeffs
 
 
-def plot_trans_cut(data_full, data_sect, abscissa='ind'): 
+def plot_trans_cut(data_full, data_sect, abscissa='phi'): 
     """
     Plot transient cutouts as function of 't','phi' or 'ind'.
     """
@@ -265,7 +266,7 @@ def plot_pos_neg_forces(forces_by_eta_sign):
 
         lift_line, = ax[0].plot(aoa, lift, style)
         ax[0].grid(True)
-        ax[1].set_ylabel('lift')
+        ax[0].set_ylabel('lift')
 
         drag_line, = ax[1].plot(aoa, drag, style)
         ax[1].grid(True)

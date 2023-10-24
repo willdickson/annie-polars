@@ -84,9 +84,9 @@ class Polars:
         forces['fx']['grav'] = self.gravity_model.fx(eta, phi)
         forces['fy']['grav'] = self.gravity_model.fy(eta, phi)
         forces['fz']['grav'] = self.gravity_model.fz(eta, phi)
-        forces['fx']['aero'] = forces['fx']['meas'] - forces['fx']['grav']
-        forces['fy']['aero'] = forces['fy']['meas'] - forces['fy']['grav']
-        forces['fz']['aero'] = forces['fz']['meas'] - forces['fz']['grav']
+        forces['fx']['aero'] = forces['fx']['meas'] - 1*forces['fx']['grav']
+        forces['fy']['aero'] = forces['fy']['meas'] - 1*forces['fy']['grav']
+        forces['fz']['aero'] = forces['fz']['meas'] - 1*forces['fz']['grav']
         forces['fx']['mean_aero'] = forces['fx']['aero'].mean()
         forces['fy']['mean_aero'] = forces['fy']['aero'].mean()
         forces['fz']['mean_aero'] = forces['fz']['aero'].mean()
