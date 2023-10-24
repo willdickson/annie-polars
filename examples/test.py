@@ -15,7 +15,7 @@ prm = {
         'wing_prm'  : {
             'length'     : 0.248,  # (m)
             'mean_chord' : 0.0883, # (m)
-            'nd_2nd_mom' : 0.43,   # dimensionless
+            'nd_2nd_mom' : 0.37,   # dimensionless
             },
         'fluid_prm' : {
             'density' : 880,  # (kg/m**3)
@@ -31,4 +31,4 @@ prm = {
         }
 
 polars = Polars(prm)
-polars.plot()
+polars.run()
