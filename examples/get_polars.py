@@ -11,11 +11,12 @@ prm = {
             't_lim'     : (1.5, 7.5),  # lower & upper bounds for time range (sec)
             'eta_lim'   : (-80, 80),   # lower & upper bounds for eta (deg)
             'trans_cut' : (0.6, 0.9),  # transient cutout region, fraction (dimensionless)
+            'gain_corr' : 2.0,         # Gain correction factor (due to analog ref issues)
             }, 
         'wing_prm'  : {
             'length'     : 0.248,  # (m)
             'mean_chord' : 0.0883, # (m)
-            'nd_2nd_mom' : 0.37,   # dimensionless
+            'nd_2nd_mom' : 0.35,   # dimensionless
             },
         'fluid_prm' : {
             'density' : 880,  # (kg/m**3)

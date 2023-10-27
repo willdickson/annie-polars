@@ -20,6 +20,7 @@ class Polars:
         # Get data extraction and plotting parameters
         data_prm = self.prm['data_prm']
         plot_prm = self.prm.setdefault('plot_prm', {})
+        print(f'  gain corr:    {round(data_prm["gain_corr"], 4)}')
 
         # Load datasets and remove transient sections
         datasets_full = load_datasets(data_dir, data_prm, plot_prm)
@@ -87,6 +88,9 @@ class Polars:
         forces['fx']['aero'] = forces['fx']['meas'] - 1*forces['fx']['grav']
         forces['fy']['aero'] = forces['fy']['meas'] - 1*forces['fy']['grav']
         forces['fz']['aero'] = forces['fz']['meas'] - 1*forces['fz']['grav']
+        #forces['fx']['aero'] = forces['fx']['grav']
+        #forces['fy']['aero'] = forces['fy']['grav']
+        #forces['fz']['aero'] = forces['fz']['grav']
         forces['fx']['mean_aero'] = forces['fx']['aero'].mean()
         forces['fy']['mean_aero'] = forces['fy']['aero'].mean()
         forces['fz']['mean_aero'] = forces['fz']['aero'].mean()
