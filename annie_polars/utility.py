@@ -66,6 +66,21 @@ def get_mean_aero(etas, forces):
     return tuple(mean_aero)
 
 
+def get_mean_grav(etas, forces): 
+    """
+    Extracts mean gravitational forces for each eta.  Adjusts forces for sign. 
+
+    Arguments:
+      etas   = eta wing angles 
+      forces = dictionary containing forces as a function of eta. 
+    """
+    mean_aero = []
+    for fname in ('fx', 'fy', 'fz'):
+        mean_vals = np.array([force_sign(fname, eta)*forces[eta][fname]['grav'].mean() for eta in etas])
+        mean_aero.append(mean_vals)
+    return tuple(mean_aero)
+
+
 def get_forces_by_eta_sign(eta, fx, fz): 
     """
     Split mean aero dynamics forces by eta sign (eta >= 0 and eta <= 0). 
@@ -236,12 +251,15 @@ def plot_mean_aero(etas_sorted, forces_full, forces_sect):
     legend_info = {'line'  : {0: [], 1: []}, 'label' : {0: [], 1: []}}
     for forces, name, style in [(forces_full, 'full', 'ob'), (forces_sect, 'sect', 'or')]: 
         fx, fy, fz = get_mean_aero(etas_sorted, forces)
+        gx, gy, gz = get_mean_grav(etas_sorted, forces)
         fz_line, = ax[0].plot(etas_sorted, fz, style)
+        gz_line, = ax[0].plot(etas_sorted, gz, 'ok')
         legend_info['line'][0].append(fz_line)
         legend_info['label'][0].append(f'fz {name}')
         ax[0].set_ylabel('fz')
         ax[0].grid(True)
         fx_line, = ax[1].plot(etas_sorted, fx, style)
+        gx_line, = ax[1].plot(etas_sorted, gx, 'ok')
         legend_info['line'][1].append(fz_line)
         legend_info['label'][1].append(f'fz {name}')
         ax[1].set_ylabel('fx')

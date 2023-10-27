@@ -25,7 +25,7 @@ prm = {
             'filtered_forces'  : False, 
             'grab_sections'    : False, 
             'trans_cutouts'    : False,
-            'mean_aero_forces' : False,
+            'mean_aero_forces' : True,
             'pos_neg_forces'   : False, 
             'lift_and_drag'    : False,
             },

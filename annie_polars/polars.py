@@ -59,7 +59,6 @@ class Polars:
         utility.plot_polars(coeffs)
 
 
-
     def get_forces(self, data): 
         """
         Extract measured, gravitational and aerodynamic forces.
@@ -82,15 +81,25 @@ class Polars:
         forces['fx']['meas'] = data['fx'][phi_mask]
         forces['fy']['meas'] = data['fy'][phi_mask]
         forces['fz']['meas'] = data['fz'][phi_mask]
-        forces['fx']['grav'] = self.gravity_model.fx(eta, phi)
-        forces['fy']['grav'] = self.gravity_model.fy(eta, phi)
-        forces['fz']['grav'] = self.gravity_model.fz(eta, phi)
+
+        if 0:
+            forces['fx']['grav'] = self.gravity_model.fx(eta, phi)
+            forces['fy']['grav'] = self.gravity_model.fy(eta, phi)
+            forces['fz']['grav'] = self.gravity_model.fz(eta, phi)
+        else:
+            phi_rng = np.linspace(self.gravity_model.phi.min(),self.gravity_model.phi.max(),100)
+            forces['fx']['grav'] = self.gravity_model.fx(eta, phi_rng).mean()
+            forces['fy']['grav'] = self.gravity_model.fy(eta, phi_rng).mean()
+            forces['fz']['grav'] = self.gravity_model.fz(eta, phi_rng).mean()
+
         forces['fx']['aero'] = forces['fx']['meas'] - 1*forces['fx']['grav']
         forces['fy']['aero'] = forces['fy']['meas'] - 1*forces['fy']['grav']
         forces['fz']['aero'] = forces['fz']['meas'] - 1*forces['fz']['grav']
+
         #forces['fx']['aero'] = forces['fx']['grav']
         #forces['fy']['aero'] = forces['fy']['grav']
         #forces['fz']['aero'] = forces['fz']['grav']
+
         forces['fx']['mean_aero'] = forces['fx']['aero'].mean()
         forces['fy']['mean_aero'] = forces['fy']['aero'].mean()
         forces['fz']['mean_aero'] = forces['fz']['aero'].mean()
